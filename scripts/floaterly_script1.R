@@ -9,25 +9,20 @@ library(here)
 library(tidyverse)
 library(magrittr)
 library(xml2)
-
-##Scrape weather data
-
+library(leaflet)
+library(readr)
 library(httr)
 library(rvest)
 library(officer)
 library(stringr)
 library(bslib)
 
-
-
-
 ##Scrape for flow data
 # URL to scrape
-#Santa Ynez River at Lompoc
-url_syl <- "https://rain.cosbpw.net/site/?site_id=20&site=08f3908e-b09f-4bbe-85c9-702af65fa1e4"
+url <- "https://rain.cosbpw.net/site/?site_id=20&site=08f3908e-b09f-4bbe-85c9-702af65fa1e4"
 
 # Read the HTML from the URL
-webpage <- read_html(url_syl)
+webpage <- read_html(url)
 
 # Find the text "Flow Volume" and extract the number in the next <h3> tag
 flow_volume_text <- webpage %>%
@@ -50,57 +45,12 @@ if (length(flow_volume_text) > 0) {
   cat("Flow Volume text not found.\n")
 }
 
-# Find the text "Stage" and extract the number in the next <h3> tag
-stage_text <- webpage %>%
-  html_nodes("body") %>%    # Extract all body content
-  html_text() %>%           # Convert to text
-  str_split("\n") %>%       # Split by new line
-  unlist() %>%              # Flatten to a vector of text
-  grep("Stage", ., value = TRUE)  # Find the line with "Stage"
-
-# If "Stage" is found, extract the next <h3> number
-if (length(stage_text) > 0) {
-  # Extract the number within the next <h3> element after "Stage"
-  number_after_h3_stage <- webpage %>%
-    html_nodes("div.h3") %>%   # Target <div class="h3">
-    html_text() %>%            # Get the text content of the <h3> element
-    .[2]                       # Get the second occurrence (next after "Flow Volume")
-  
-  cat("Stage Number:", number_after_h3_stage, "\n")
-} else {
-  cat("Stage text not found.\n")
-}
-  
-
-#create scrape path for flows in Santa Ynez River at Santa Cruz
+##Stage scrape
 # URL to scrape
-
-
-url_sysc <- "https://rain.cosbpw.net/site/?site_id=12&site=99a5b8ad-d727-493d-ac9c-9b4e76b7c716"
+url <- "https://rain.cosbpw.net/site/?site_id=20&site=08f3908e-b09f-4bbe-85c9-702af65fa1e4"
 
 # Read the HTML from the URL
-webpage <- read_html(url_sysc)
-
-# Find the text "Flow Volume" and extract the number in the next <h3> tag
-flow_volume_text <- webpage %>%
-  html_nodes("body") %>%    # Extract all body content
-  html_text() %>%           # Convert to text
-  str_split("\n") %>%       # Split by new line
-  unlist() %>%              # Flatten to a vector of text
-  grep("Flow Volume", ., value = TRUE)  # Find the line with "Flow Volume"
-
-# If "Flow Volume" is found, extract the next <h3> number
-if (length(flow_volume_text) > 0) {
-  # Extract the number within the next <h3> element after "Flow Volume"
-  number_after_h3 <- webpage %>%
-    html_nodes("div.h3") %>%   # Target <div class="h3">
-    html_text() %>%            # Get the text content of the <h3> element
-    .[1]                       # Get the first occurrence
-  
-  cat("Flow Volume Number:", number_after_h3, "\n")
-} else {
-  cat("Flow Volume text not found.\n")
-}
+webpage <- read_html(url)
 
 # Find the text "Stage" and extract the number in the next <h3> tag
 stage_text <- webpage %>%
@@ -123,62 +73,46 @@ if (length(stage_text) > 0) {
   cat("Stage text not found.\n")
 }
   
-#create scrape path for flows in ZACA creek
-#URL
-url_zaca <- "https://rain.cosbpw.net/site/?site_id=17&site=f633ad26-c5c8-46ae-baaa-14cc3f69c049"
 
-# Read the HTML from the URL
-webpage <- read_html(url_zaca)
+hydrologic_data <- #data frame of useful scraped data
 
 
-# Find the text "Flow Volume" and extract the number in the next <h3> tag
-flow_volume_text <- webpage %>%
-  html_nodes("body") %>%    # Extract all body content
-  html_text() %>%           # Convert to text
-  str_split("\n") %>%       # Split by new line
-  unlist() %>%              # Flatten to a vector of text
-  grep("Flow Volume", ., value = TRUE)  # Find the line with "Flow Volume"
-
-# If "Flow Volume" is found, extract the next <h3> number
-if (length(flow_volume_text) > 0) {
-  # Extract the number within the next <h3> element after "Flow Volume"
-  number_after_h3 <- webpage %>%
-    html_nodes("div.h3") %>%   # Target <div class="h3">
-    html_text() %>%            # Get the text content of the <h3> element
-    .[1]                       # Get the first occurrence
   
-  cat("Flow Volume Number:", number_after_h3, "\n")
-} else {
-  cat("Flow Volume text not found.\n")
-}
-
-# Find the text "Stage" and extract the number in the next <h3> tag
-stage_text <- webpage %>%
-  html_nodes("body") %>%    # Extract all body content
-  html_text() %>%           # Convert to text
-  str_split("\n") %>%       # Split by new line
-  unlist() %>%              # Flatten to a vector of text
-  grep("Stage", ., value = TRUE)  # Find the line with "Stage"
-
-# If "Stage" is found, extract the next <h3> number
-if (length(stage_text) > 0) {
-  # Extract the number within the next <h3> element after "Stage"
-  number_after_h3_stage <- webpage %>%
-    html_nodes("div.h3") %>%   # Target <div class="h3">
-    html_text() %>%            # Get the text content of the <h3> element
-    .[2]                       # Get the second occurrence (next after "Flow Volume")
+  library(janitor)
   
-  cat("Stage Number:", number_after_h3_stage, "\n")
-} else {
-  cat("Stage text not found.\n")
-}
+#Make map for main panel
+
+# Load your data (update the path as needed)
+creek_data <- read_csv("Floaterly Creek ID Spreadsheet - Sheet1.csv")|>
+  clean_names()
+
+leaflet(data = creek_data) %>%
+  addTiles() %>%
+  addMarkers(
+    lng = ~long, lat = ~lat, 
+    popup = ~paste("Lat: ", lat, "<br>Long: ", long),  # Popup content
+    label = ~common_name,  # Display the Common Name as a label
+    labelOptions = labelOptions(
+      noHide = FALSE,   # Keep label visible even when not hovering
+      direction = "top",  # Position label above the marker
+      style = list(
+        "font-weight" = "bold",  # Bold text
+        "font-size" = "14px",    # Font size
+        "color" = "black"        # Label text color
+      )
+    )
+  ) %>%
+  fitBounds(
+    lng1 = min(creek_data$long),  # Minimum longitude
+    lat1 = min(creek_data$lat),   # Minimum latitude
+    lng2 = max(creek_data$long),  # Maximum longitude
+    lat2 = max(creek_data$lat)    # Maximum latitude
+  )
 
 
-
- 
 #National weather service scraping 
 # URL of the weather forecast
-weather_url <- "https://forecast.weather.gov/MapClick.php?lat=34.4262&lon=-119.8415"
+url <- "https://forecast.weather.gov/MapClick.php?lat=34.4262&lon=-119.8415"
 
 # Read the HTML from the URL
 page <- read_html(url)
@@ -223,7 +157,6 @@ print(paste("The temperature is:", temperature))
 
 
 
-
 ##Scaffolding
 
 #create a ui that has a dropdown menu for water body, 
@@ -250,30 +183,57 @@ ui <- fluidPage(
       ),
       checkboxGroupInput(
         inputId = 'hydrologic_data',
-        label = "Choose metric",
+        label = "What do you want in your swim report",
         choices = c('Weather',
-                    'Nitrate concentration',
-                    'Flows',
-                    'Depth')
+                    'Flows', 
+                    'Water Quality', #Get rid of this if we arent going to use it
+                    'Swim Recomendation')
       ),
-      actionButton("help", "Help"),
+      actionButton("help_button", "Help"),
       actionButton("Go", "Get Floatin'"),
       
 
     ),
     mainPanel(
-        img(src='CoverImage.png', align = "right"),
-        ### the rest of your code
-      uiOutput("imageUI"),  # Placeholder for dynamic image
-      textOutput("Risk Level"),
-      textOutput("Weather"),
-      textOutput("Nitrate Concentration")
+      # Output to display the leaflet map
+      leafletOutput("map_output")
     )
   )
 )
 
 
 server <- function(input, output, session) {
+  
+  # Load the creek data (update path as necessary)
+  creek_data <- read_csv("Floaterly Creek ID Spreadsheet - Sheet1.csv")
+  
+  # Reactive expression to render the map
+  output$map_output <- renderLeaflet({
+    leaflet(data = creek_data) %>%
+      addTiles() %>%
+      addMarkers(
+        lng = ~long, lat = ~lat, 
+        popup = ~paste("Lat: ", lat, "<br>Long: ", long),  # Popup content
+        label = ~common_name,  # Display the Common Name as a label
+        labelOptions = labelOptions(
+          noHide = FALSE,   # Keep label visible even when not hovering
+          direction = "top",  # Position label above the marker
+          style = list(
+            "font-weight" = "bold",  # Bold text
+            "font-size" = "14px",    # Font size
+            "color" = "black"        # Label text color
+          )
+        )
+      ) %>%
+      fitBounds(
+        lng1 = min(creek_data$long),  # Minimum longitude
+        lat1 = min(creek_data$lat),   # Minimum latitude
+        lng2 = max(creek_data$long),  # Maximum longitude
+        lat2 = max(creek_data$lat)    # Maximum latitude
+      )
+  })
+  
+  
   
   # Reactive function to filter water data
   water_select <- reactive({
@@ -308,20 +268,50 @@ server <- function(input, output, session) {
   
   # Initially show a placeholder image
   output$imageUI <- renderUI({
-    tags$img(src = "CoverImage.png", height = "300px")  # Change path and image as needed
+    tags$img(src = "CoverImage.jpg", height = "300px")  # Change path and image as needed
   })
   
   # Change image when "Go" button is pressed
   observeEvent(input$Go, {
     output$imageUI <- renderUI({
-      tags$img(src = "CoverImage.png", height = "300px")  # Change path and image as needed
+      tags$img(src = "Error.jpg", height = "300px")  # Change path and image as needed
     })
   })
+  
+#Add content for when the user presses the help button
+observeEvent(input$help_button, {
+  output$help_content <- renderUI({
+    tagList(
+      h3("How to Floaterly"),
+      p("Follow the steps below to get started:"),
+      ul(
+        li(
+          p("Step 1: Click the 'Start' button to begin.Select a stream: Use the drop down menu to select a stream that you are considering swimming in. This list includes all streams in Santa Barbara county that have 
+             hydrologic data that is updated automatically by USGS. Each stream may have multiple locations so use the map on the main panel to decide whihc location you are interested
+             in."),
+          img(src = "coverImage.jpg", height = "200px"), #Add screen shot of finished app
+          p("Drop down menu for electing your stream of interest")
+        ),
+        li(
+          p("Select your swim report: QUse the check boxes to decide what you want included in your swim report. You can include weather, stream flow, water height, and a recommendation if you 
+            suffer from indecision."),
+          img(src = "coverImage.jpg", height = "200px"), #Add screen shot of finished app
+          p("Selection check boxes to specify what you want included in your swim report.")
+        ),
+        li(
+          p("Go Button: Press this button when you are ready to see your swim report. Pressing this button should populate the swim report into the main pannel."),
+          img(src = "coverImage.jpg", height = "200px"), #Add screen shot of finished app
+          p("Press the Go button to check out your swim report.")
+        )
+      )
+    )
+  })
+})
+
 }
 
 # combine into the app
 shinyApp(ui = ui, server = server)
-
 
 
 
