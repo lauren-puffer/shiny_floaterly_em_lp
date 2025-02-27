@@ -16,6 +16,7 @@ library(rvest)
 library(officer)
 library(stringr)
 library(bslib)
+library(janitor)
 
 ##Scrape for flow data
 # URL to scrape
@@ -78,12 +79,11 @@ hydrologic_data <- #data frame of useful scraped data
 
 
   
-  library(janitor)
   
 #Make map for main panel
 
 # Load your data (update the path as needed)
-creek_data <- read_csv("Floaterly Creek ID Spreadsheet - Sheet1.csv")|>
+creek_data <- read_csv(here("scraping-spreadsheet", "Floaterly Creek ID Spreadsheet - Sheet1.csv"))|>
   clean_names()
 
 leaflet(data = creek_data) %>%
@@ -110,51 +110,6 @@ leaflet(data = creek_data) %>%
   )
 
 
-#National weather service scraping 
-# URL of the weather forecast
-url <- "https://forecast.weather.gov/MapClick.php?lat=34.4262&lon=-119.8415"
-
-# Read the HTML from the URL
-page <- read_html(url)
-
-# Scrape all the 'td' elements which contain the weather data
-weather_data <- page %>%
-  html_nodes("td") %>%
-  html_text()
-
-# Find the index of the first occurrence of "Humidity"
-humidity_index <- grep("Humidity", weather_data)
-
-# Extract the percentage value (next element after "Humidity")
-humidity_percentage <- gsub("[^0-9%]", "", weather_data[humidity_index + 1])
-
-# Find the index of the first occurrence of "Wind Speed"
-wind_speed_index <- grep("Wind Speed", weather_data)
-
-# Extract the wind speed value (next element after "Wind Speed")
-wind_speed <- weather_data[wind_speed_index + 1]
-
-# Clean up the wind speed text (optional)
-wind_speed <- gsub("\\s+", " ", wind_speed)  # Replace multiple spaces with a single space
-
-# Scrape for weather condition (e.g., "Overcast") and temperature (e.g., "57°F")
-weather_condition <- page %>%
-  html_nodes(".myforecast-current") %>%
-  html_text() %>%
-  .[1]  # Get the first instance for the weather condition
-
-temperature <- page %>%
-  html_nodes(".myforecast-current-lrg") %>%
-  html_text() %>%
-  .[1]  # Get the first instance for the temperature
-
-# Print the results
-print(paste("The humidity is:", humidity_percentage))
-print(paste("The wind speed is:", wind_speed))
-print(paste("The current weather is:", weather_condition))
-print(paste("The temperature is:", temperature))
-
-
 
 
 ##Scaffolding
@@ -169,7 +124,7 @@ ui <- fluidPage(
     sidebarPanel(
       'Tell us about your float!',
       selectInput(
-        inputId = 'hydrologic_data',
+        inputId = 'creek_data',
         label = "Choose body of water",
         choices = c('Montecito Creek',
                     'Santa Ynez River at Lake Cachuma',
@@ -190,7 +145,7 @@ ui <- fluidPage(
                     'Swim Recomendation')
       ),
       actionButton("help_button", "Help"),
-      actionButton("Go", "Get Floatin'"),
+      actionButton("scrape_btn", "Get Floatin'"),
       
 
     ),
@@ -204,35 +159,99 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
-  # Load the creek data (update path as necessary)
-  creek_data <- read_csv("Floaterly Creek ID Spreadsheet - Sheet1.csv")
+  weather_data_reactive <- eventReactive(input$scrape_btn, {
+    # URL of the weather forecast
+    url <- "https://forecast.weather.gov/MapClick.php?lat=34.4262&lon=-119.8415"
+    
+    # Read the HTML from the URL
+    page <- read_html(url)
+    
+    #scrape all the 'td' elements which contain the weather data
+    weather_data <- page |>
+      html_nodes("td") |>
+      html_text()
+    
+    #find the index of the first occurrence of "Humidity"
+    humidity_index <- grep("Humidity", weather_data)
+    humidity_percentage <- gsub("[^0-9%]", "", weather_data[humidity_index + 1])
+    
+    #find the index of the first occurrence of "Wind Speed"
+    wind_speed_index <- grep("Wind Speed", weather_data)
+    wind_speed <- gsub("\\s+", " ", weather_data[wind_speed_index + 1]) 
+    
+    #scrape for weather condition 
+    weather_condition <- page |>
+      html_nodes(".myforecast-current") |>
+      html_text() |>
+      .[1]  # Get the first instance for the weather condition
+    
+    temperature <- page |>
+      html_nodes(".myforecast-current-lrg") |>
+      html_text() |>
+      .[1]  # Get the first instance for the temperature
+    
+    # Return scraped data as a list
+    list(
+      humidity = humidity_percentage,
+      wind_speed = wind_speed,
+      weather_condition = weather_condition,
+      temperature = temperature
+    )
+  })
   
-  # Reactive expression to render the map
+  # Display the scraped data when the button is pressed
+  output$humidity <- renderText({
+    weather <- weather_data_reactive()
+    paste("Humidity:", weather$humidity)
+  })
+  
+  output$wind_speed <- renderText({
+    weather <- weather_data_reactive()
+    paste("Wind Speed:", weather$wind_speed)
+  })
+  
+  output$weather_condition <- renderText({
+    weather <- weather_data_reactive()
+    paste("Current Weather:", weather$weather_condition)
+  })
+  
+  output$temperature <- renderText({
+    weather <- weather_data_reactive()
+    paste("Temperature:", weather$temperature)
+  })
+ 
+  
+   # Load the creek data (update path as necessary)
+  creek_data <- read_csv(here("scraping-spreadsheet", "Floaterly Creek ID Spreadsheet - Sheet1.csv")) |>
+    clean_names()
+
+  #scrape data from a url and use html_node found in csv file
+  
+  #create interactive map showing the sites of each creek
   output$map_output <- renderLeaflet({
-    leaflet(data = creek_data) %>%
-      addTiles() %>%
+    leaflet(data = creek_data) |>
+      addTiles() |>
       addMarkers(
         lng = ~long, lat = ~lat, 
-        popup = ~paste("Lat: ", lat, "<br>Long: ", long),  # Popup content
-        label = ~common_name,  # Display the Common Name as a label
+        popup = ~paste("Lat: ", lat, "<br>Long: ", long),
+        label = ~common_name,
         labelOptions = labelOptions(
-          noHide = FALSE,   # Keep label visible even when not hovering
-          direction = "top",  # Position label above the marker
+          noHide = FALSE,
+          direction = "top",
           style = list(
-            "font-weight" = "bold",  # Bold text
-            "font-size" = "14px",    # Font size
-            "color" = "black"        # Label text color
+            "font-weight" = "bold",
+            "font-size" = "14px",
+            "color" = "black"
           )
         )
       ) %>%
       fitBounds(
-        lng1 = min(creek_data$long),  # Minimum longitude
-        lat1 = min(creek_data$lat),   # Minimum latitude
-        lng2 = max(creek_data$long),  # Maximum longitude
-        lat2 = max(creek_data$lat)    # Maximum latitude
+        lng1 = min(creek_data$long), 
+        lat1 = min(creek_data$lat),
+        lng2 = max(creek_data$long),
+        lat2 = max(creek_data$lat)
       )
   })
-  
   
   
   # Reactive function to filter water data
