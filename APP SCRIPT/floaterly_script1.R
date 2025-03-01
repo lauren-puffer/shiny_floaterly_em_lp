@@ -18,7 +18,9 @@ library(stringr)
 library(bslib)
 library(janitor)
 
-##Scrape for flow data
+##Add trial scraping data
+
+
 # URL to scrape
 url <- "https://rain.cosbpw.net/site/?site_id=20&site=08f3908e-b09f-4bbe-85c9-702af65fa1e4"
 
@@ -75,9 +77,9 @@ if (length(stage_text) > 0) {
 }
   
 
-hydrologic_data <- #data frame of useful scraped data
-
-
+#Input CSV with creek names and nodes for scraping
+creek_data <- read.cvs(here("scraping scripts","Floaterly Creek ID Spreadsheet - Sheet1.csv"))|>
+  clean_names()
   
   
 #Make map for main panel
@@ -124,16 +126,11 @@ ui <- fluidPage(
     sidebarPanel(
       'Tell us about your float!',
       selectInput(
-        inputId = 'creek_data',
+        inputId = 'creek',
         label = "Choose body of water",
-        choices = c('Montecito Creek',
-                    'Santa Ynez River at Lake Cachuma',
-                    'Santa Ynez River at Lompoc',
-                    'Husana River at Arroyo Grande',
-                    'Zaca Creek at Buellton',
-                    'Mission Creek',
-                    'Los Laureles Creek',
-                    'Carpinteria Creek')
+        selectInput("creek", "Choose a body of water", choices = creek_data$common_name),
+        actionButton("scrape_btn", "Get Floatin")
+      ))
       
       ),
       checkboxGroupInput(
@@ -141,20 +138,17 @@ ui <- fluidPage(
         label = "What do you want in your swim report",
         choices = c('Weather',
                     'Flows', 
-                    'Water Quality', #Get rid of this if we arent going to use it
                     'Swim Recomendation')
       ),
       actionButton("help_button", "Help"),
       actionButton("scrape_btn", "Get Floatin'"),
-      
-
-    ),
     mainPanel(
+      verbatimTextOutput("Float Report"),
       # Output to display the leaflet map
       leafletOutput("map_output")
     )
   )
-)
+
 
 
 server <- function(input, output, session) {
@@ -221,9 +215,6 @@ server <- function(input, output, session) {
   })
  
   
-   # Load the creek data (update path as necessary)
-  creek_data <- read_csv(here("scraping-spreadsheet", "Floaterly Creek ID Spreadsheet - Sheet1.csv")) |>
-    clean_names()
 
   #scrape data from a url and use html_node found in csv file
   
