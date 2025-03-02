@@ -53,8 +53,6 @@ scrape_creek_data <- function(creek_node) {
   
   stage <- ifelse(length(stage_text) > 0, str_extract(stage_text[1], "\\d+\\.\\d+"), NA)
   
-  flow_volume = 1
-  stage = 1
   
   hydrologic_data <<- data.frame(
     flow_volume = flow_volume,
@@ -192,22 +190,12 @@ server <- function(input, output, session) {
     #Added temporary code for scraping so it runs on my computer
     
     # Return weather data
-    # return(list(
-    #   weather_condition = weather_condition,
-    #   temperature = temperature,
-    #   humidity = humidity_percentage,
-    #   wind_speed = wind_speed
-    #   
-      
-      return(list(
-        weather_condition = 'windy',
-        temperature = 60,
-        humidity = 50,
-        wind_speed = 6
-      
-      
-      
-    ))
+   return(list(
+    weather_condition = weather_condition,
+   temperature = temperature,
+   humidity = humidity_percentage,
+  wind_speed = wind_speed))
+    
   }
   
   # Reactive expression to fetch creek data when the button is clicked
