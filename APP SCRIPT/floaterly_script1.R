@@ -21,72 +21,63 @@ library(janitor)
 ##Add trial scraping data
 
 
-# URL to scrape
-url <- "https://rain.cosbpw.net/site/?site_id=20&site=08f3908e-b09f-4bbe-85c9-702af65fa1e4"
+# Input CSV with creek names and nodes for scraping
+creek_data <- read.csv(here("scraping scripts", "Floaterly Creek ID Spreadsheet - Sheet1.csv")) %>%
+  clean_names() |>
+  rename(creek_node = url)
 
-# Read the HTML from the URL
-webpage <- read_html(url)
+# Add a new column for the creek node (strip the part of the URL)
+creek_data <- creek_data |>
+  mutate(creek_node = str_remove(creek_node, "https://rain.cosbpw.net/site/\\?site_id="))
 
-# Find the text "Flow Volume" and extract the number in the next <h3> tag
-flow_volume_text <- webpage %>%
-  html_nodes("body") %>%    # Extract all body content
-  html_text() %>%           # Convert to text
-  str_split("\n") %>%       # Split by new line
-  unlist() %>%              # Flatten to a vector of text
-  grep("Flow Volume", ., value = TRUE)  # Find the line with "Flow Volume"
-
-# If "Flow Volume" is found, extract the next <h3> number
-if (length(flow_volume_text) > 0) {
-  # Extract the number within the next <h3> element after "Flow Volume"
-  number_after_h3 <- webpage %>%
-    html_nodes("div.h3") %>%   # Target <div class="h3">
-    html_text() %>%            # Get the text content of the <h3> element
-    .[1]                       # Get the first occurrence
+# Function to scrape data based on creek node
+scrape_creek_data <- function(creek_node) {
+  # Construct the URL to scrape using the creek_node
+  url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node)
   
-  cat("Flow Volume Number:", number_after_h3, "\n")
-} else {
-  cat("Flow Volume text not found.\n")
+  # Read the HTML content of the page
+  webpage <- read_html(url)
+  
+  # Scrape Flow Volume
+  flow_volume_text <- webpage %>%
+    html_nodes("body") %>%
+    html_text() %>%
+    str_split("\n") %>%
+    unlist() %>%
+    grep("Flow Volume", ., value = TRUE)
+  
+  # Extract the number after "Flow Volume"
+  flow_volume <- NA
+  if (length(flow_volume_text) > 0) {
+    flow_volume <- webpage %>%
+      html_nodes("div.h3") %>%
+      html_text() %>%
+      .[1]  # Get the first occurrence after "Flow Volume"
+  }
+  
+  # Scrape Stage
+  stage_text <- webpage %>%
+    html_nodes("body") %>%
+    html_text() %>%
+    str_split("\n") %>%
+    unlist() %>%
+    grep("Stage", ., value = TRUE)
+  
+  # Extract the number after "Stage"
+  stage <- NA
+  if (length(stage_text) > 0) {
+    stage <- webpage %>%
+      html_nodes("div.h3") %>%
+      html_text() %>%
+      .[2]  # Get the second occurrence after "Flow Volume"
+  }
+  
+  # Return both Flow Volume and Stage
+  return(list(flow_volume = flow_volume, stage = stage))
 }
-
-##Stage scrape
-# URL to scrape
-url <- "https://rain.cosbpw.net/site/?site_id=20&site=08f3908e-b09f-4bbe-85c9-702af65fa1e4"
-
-# Read the HTML from the URL
-webpage <- read_html(url)
-
-# Find the text "Stage" and extract the number in the next <h3> tag
-stage_text <- webpage %>%
-  html_nodes("body") %>%    # Extract all body content
-  html_text() %>%           # Convert to text
-  str_split("\n") %>%       # Split by new line
-  unlist() %>%              # Flatten to a vector of text
-  grep("Stage", ., value = TRUE)  # Find the line with "Stage"
-
-# If "Stage" is found, extract the next <h3> number
-if (length(stage_text) > 0) {
-  # Extract the number within the next <h3> element after "Stage"
-  number_after_h3_stage <- webpage %>%
-    html_nodes("div.h3") %>%   # Target <div class="h3">
-    html_text() %>%            # Get the text content of the <h3> element
-    .[2]                       # Get the second occurrence (next after "Flow Volume")
-  
-  cat("Stage Number:", number_after_h3_stage, "\n")
-} else {
-  cat("Stage text not found.\n")
-}
-  
-
-#Input CSV with creek names and nodes for scraping
-creek_data <- read.cvs(here("scraping scripts","Floaterly Creek ID Spreadsheet - Sheet1.csv"))|>
-  clean_names()
   
   
 #Make map for main panel
-
-# Load your data (update the path as needed)
-creek_data <- read_csv(here("scraping-spreadsheet", "Floaterly Creek ID Spreadsheet - Sheet1.csv"))|>
-  clean_names()
 
 leaflet(data = creek_data) %>%
   addTiles() %>%
@@ -126,10 +117,8 @@ ui <- fluidPage(
     sidebarPanel(
       'Tell us about your float!',
       selectInput(
-        inputId = 'creek',
-        label = "Choose body of water",
         selectInput("creek", "Choose a body of water", choices = creek_data$common_name),
-        actionButton("scrape_btn", "Get Floatin")
+        actionButton("goButton", "Get Floatin")
       ))
       
       ),
@@ -143,7 +132,7 @@ ui <- fluidPage(
       actionButton("help_button", "Help"),
       actionButton("scrape_btn", "Get Floatin'"),
     mainPanel(
-      verbatimTextOutput("Float Report"),
+      verbatimTextOutput("creekData"),
       # Output to display the leaflet map
       leafletOutput("map_output")
     )
@@ -257,10 +246,6 @@ server <- function(input, output, session) {
       filter(water == input$water_body)
   })
   
-  # Create a place for input nitrate concentration data to be displayed
-  output$nitrate <- renderText({
-    nitrate_df <- nitrate |>
-      filter(water == input$water_body)
   })
   
   # Use inputs of flow and stage for risk level output
