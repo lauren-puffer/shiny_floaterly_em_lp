@@ -105,3 +105,5 @@ result <- predict_safety(velocity_input)
 # Print the result
 cat(result$message, "\n")
 
+
+creek_data <- read.csv(here("data", "Floaterly Creek ID Spreadsheet - Sheet1.csv"))
