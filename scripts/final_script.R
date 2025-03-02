@@ -1,3 +1,8 @@
+#Ella Moore & Lauren Puffer
+#ESM 244 - Winter 2025
+
+#Shiny App Layout
+
 library(shiny)
 library(here)
 library(tidyverse)
@@ -261,23 +266,14 @@ server <- function(input, output, session) {
     return(selected_data)
   })
   
-  # Render the map with creek locations
+  # Initially render the map in the "Swim Report" tab
   output$map_output <- renderLeaflet({
+    req(creek_data)  
     leaflet(data = creek_data) %>%
       addTiles() %>%
       addMarkers(
         lng = ~long, lat = ~lat, 
-        popup = ~paste("Lat: ", lat, "<br>Long: ", long),
-        label = ~common_name,
-        labelOptions = labelOptions(
-          noHide = FALSE,
-          direction = "top",
-          style = list(
-            "font-weight" = "bold",
-            "font-size" = "14px",
-            "color" = "black"
-          )
-        )
+        label = ~common_name  # Display name on hover
       ) %>%
       fitBounds(
         lng1 = min(creek_data$long), 
