@@ -3,7 +3,7 @@
 
 #Shiny App Layout
 
-#library(shiny)
+library(shiny)
 library(here)
 library(tidyverse)
 library(magrittr)
@@ -28,9 +28,12 @@ creek_data <- read.csv(here("data", "Floaterly Creek ID Spreadsheet - Sheet1.csv
 creek_data <- creek_data %>%
   mutate(creek_node = str_remove(creek_node, "https://rain.cosbpw.net/site/\\?site_id="))
 
-# Function to scrape hydrologic data
+# Function to scrape data based on creek node
 scrape_creek_data <- function(creek_node) {
+  # Construct the URL to scrape using the creek_node
   url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node)
+  
+  # Read the HTML content of the page
   webpage <- read_html(url)
   
   # Scrape Flow Volume
@@ -41,7 +44,14 @@ scrape_creek_data <- function(creek_node) {
     unlist() %>%
     grep("Flow Volume", ., value = TRUE)
   
-  flow_volume <- ifelse(length(flow_volume_text) > 0, str_extract(flow_volume_text[1], "\\d+"), NA)
+  # Extract the number after "Flow Volume"
+  flow_volume <- NA
+  if (length(flow_volume_text) > 0) {
+    flow_volume <- webpage %>%
+      html_nodes("div.h3") %>%
+      html_text() %>%
+      .[1]  # Get the first occurrence after "Flow Volume"
+  }
   
   # Scrape Stage
   stage_text <- webpage %>%
@@ -51,7 +61,14 @@ scrape_creek_data <- function(creek_node) {
     unlist() %>%
     grep("Stage", ., value = TRUE)
   
-  stage <- ifelse(length(stage_text) > 0, str_extract(stage_text[1], "\\d+\\.\\d+"), NA)
+  # Extract the number after "Stage"
+  stage <- NA
+  if (length(stage_text) > 0) {
+    stage <- webpage %>%
+      html_nodes("div.h3") %>%
+      html_text() %>%
+      .[2]  # Get the second occurrence after "Flow Volume"
+  }
   
   
   hydrologic_data <<- data.frame(
@@ -59,14 +76,11 @@ scrape_creek_data <- function(creek_node) {
     stage = stage
   )
   
-  #Changed scraping data to permanent temp data to make it run
-  # Return data
-  return(list(
-  flow_volume = flow_volume,
-  stage = stage
   
-  ))
-}
+  return(list(
+    flow_volume = flow_volume, 
+    stage = stage))
+  }
 
 
 #Logistic regression model function. Logistic regression made in seperate script

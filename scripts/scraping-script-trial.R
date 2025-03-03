@@ -8,7 +8,7 @@ library(janitor)
 library(stringr)
 
 # Input CSV with creek names and nodes for scraping
-creek_data <- read.csv(here("scraping scripts", "Floaterly Creek ID Spreadsheet - Sheet1.csv")) %>%
+creek_data <- read.csv(here("data", "Floaterly Creek ID Spreadsheet - Sheet1.csv")) %>%
   clean_names() %>%
   rename(creek_node = url)
 
@@ -231,20 +231,21 @@ shinyApp(ui = ui, server = server)
 
 
   
+creek_data_reactive <- eventReactive(input$goButton, {
+  # Get the selected creek's node
+  creek_node <- selected_creek_node()
   
+  # Scrape the data (flow volume, stage, weather condition, and temperature)
+  data <- scrape_creek_data(creek_node)
   
-
-#code for observeEVent
-# When the "Go" button is pressed, display the additional data in the "Swim Report" tab
-observeEvent(input$scrape_btn, {
-  output$swim_report <- renderText({
-    weather <- weather_data_reactive()
-    paste(
-      "Weather Condition:", weather$weather_condition, 
-      "\nHumidity:", weather$humidity, 
-      "\nTemperature:", weather$temperature, 
-      "\nWind Speed:", weather$wind_speed
-    )
-  })
+  # Return the scraped data as a formatted text
+  formatted_creek_data <- paste(
+    "Flow Volume: ", data$flow_volume, "\n",
+    "Stage: ", data$stage)
+  
+  # Return the formatted data
+  list(creek_data = formatted_creek_data)
 })
   
+
+
