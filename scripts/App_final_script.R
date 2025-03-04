@@ -28,12 +28,9 @@ creek_data <- read.csv(here("data", "Floaterly Creek ID Spreadsheet - Sheet1.csv
 creek_data <- creek_data %>%
   mutate(creek_node = str_remove(creek_node, "https://rain.cosbpw.net/site/\\?site_id="))
 
-# Function to scrape data based on creek node
+# Function to scrape hydrologic data
 scrape_creek_data <- function(creek_node) {
-  # Construct the URL to scrape using the creek_node
   url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node)
-  
-  # Read the HTML content of the page
   webpage <- read_html(url)
   
   # Scrape Flow Volume
@@ -44,14 +41,7 @@ scrape_creek_data <- function(creek_node) {
     unlist() %>%
     grep("Flow Volume", ., value = TRUE)
   
-  # Extract the number after "Flow Volume"
-  flow_volume <- NA
-  if (length(flow_volume_text) > 0) {
-    flow_volume <- webpage %>%
-      html_nodes("div.h3") %>%
-      html_text() %>%
-      .[1]  # Get the first occurrence after "Flow Volume"
-  }
+  flow_volume <- ifelse(length(flow_volume_text) > 0, str_extract(flow_volume_text[1], "\\d+"), NA)
   
   # Scrape Stage
   stage_text <- webpage %>%
@@ -61,14 +51,7 @@ scrape_creek_data <- function(creek_node) {
     unlist() %>%
     grep("Stage", ., value = TRUE)
   
-  # Extract the number after "Stage"
-  stage <- NA
-  if (length(stage_text) > 0) {
-    stage <- webpage %>%
-      html_nodes("div.h3") %>%
-      html_text() %>%
-      .[2]  # Get the second occurrence after "Flow Volume"
-  }
+  stage <- ifelse(length(stage_text) > 0, str_extract(stage_text[1], "\\d+\\.\\d+"), NA)
   
   
   hydrologic_data <<- data.frame(
@@ -76,11 +59,14 @@ scrape_creek_data <- function(creek_node) {
     stage = stage
   )
   
-  
+  #Changed scraping data to permanenet temp data to make it run
+  # Return data
   return(list(
-    flow_volume = flow_volume, 
-    stage = stage))
-  }
+    flow_volume = flow_volume,
+    stage = stage
+    
+  ))
+}
 
 
 #Logistic regression model function. Logistic regression made in seperate script
@@ -121,7 +107,10 @@ ui <- fluidPage(
       'Tell us about your float!',
       
       selectInput('creek', "Choose a body of water", choices = creek_data$common_name),
-
+      actionButton("goButton", label = tags$img(src = "Get_Floatin.png", height = "100px")),
+      
+      actionButton("help_btn", label = tags$img(src = "Help.png", height = "100px")),
+      
       checkboxGroupInput(
         inputId = 'hydrologic_data',
         label = "What data would you like in your swim report",
@@ -132,11 +121,7 @@ ui <- fluidPage(
         inputId = 'recommendation_type',
         label = "What type of recommendation would you like?",
         choices = c('Safety Report', 'Local Recommendation')
-      ), 
-      actionButton("goButton", label = tags$img(src = "Get_Floatin.png", height = "100px")),
-      
-      actionButton("help_btn", label = tags$img(src = "Help.png", height = "100px")),
-      
+      )
     ),
     
     mainPanel(
@@ -147,10 +132,7 @@ ui <- fluidPage(
                  verbatimTextOutput("creekData"),
                  verbatimTextOutput("weatherData"),
                  verbatimTextOutput("localRecommendation"),
-                 verbatimTextOutput("safetyReport"),
-                 tableOutput("creek_coords_table")
-                 
-                 
+                 verbatimTextOutput("safetyReport")
         ),  
         tabPanel("How To Use Floaterly", uiOutput("help_content")),  
         tabPanel("Gallery", uiOutput("gallery_content"))  
@@ -202,13 +184,21 @@ server <- function(input, output, session) {
     wind_speed <- gsub("\\s+", " ", weather_data[wind_speed_index + 1])
     
     
-    # Return weather data
-   return(list(
-    weather_condition = weather_condition,
-   temperature = temperature,
-   humidity = humidity_percentage,
-  wind_speed = wind_speed))
     
+    
+    
+    #Added temporary code for scraping so it runs on my computer
+    
+    # Return weather data
+    return(list(
+     weather_condition = weather_condition,
+     temperature = temperature,
+     humidity = humidity_percentage,
+     wind_speed = wind_speed
+      
+      
+      
+    ))
   }
   
   # Reactive expression to fetch creek data when the button is clicked
@@ -232,10 +222,16 @@ server <- function(input, output, session) {
     return(weather_data)
   })
   
-  # Trigger event when Go button is pressed
+  
   go_trigger <- eventReactive(input$goButton, {
     input$recommendation_type  # Returns the selected recommendation type when button is clicked
   })
+  
+  
+  
+  
+  
+  
   
   # Reactive expression for Local Recommendation based on selected creek
   local_recommendation_reactive <- reactive({
@@ -246,52 +242,6 @@ server <- function(input, output, session) {
     
     return(local_rec)
   })
-  
-  # Render the Local Recommendation only when checkboxes are selected and Go button is clicked
-  output$localRecommendation <- renderText({
-    selected_data <- ""
-    
-    # Ensure Go button is pressed and "Local Recommendation" is checked
-    if ("Local Recommendation" %in% go_trigger()) {
-      local_rec <- local_recommendation_reactive()
-      
-      # Only update if there's a valid selection
-      if (!is.null(local_rec) && local_rec != "") {
-        selected_data <- paste("Local Recommendation: ", local_rec)
-      }
-    }
-    
-    return(selected_data)
-  })
-  
-  # Render the Safety Report only when "Safety Report" is checked and Go button is clicked
-  output$safetyReport <- renderText({
-    selected_data <- ""
-    
-    # Ensure Go button is pressed and "Safety Report" is checked
-    if ("Safety Report" %in% go_trigger()) {
-      
-      # Use hardcoded values from the hydrologic_data data frame
-      flow_volume <- hydrologic_data$flow_volume
-      stage <- hydrologic_data$stage
-      
-      # Ensure flow and stage are numeric, and check if they are NA or 0
-      if (is.na(flow_volume) || is.na(stage) || flow_volume == 0 || stage == 0) {
-        selected_data <- "There is not enough data to run our safety model."
-      } else {
-        velocity_input <- flow_volume / stage  # Compute velocity
-        result <- predict_safety(velocity_input)  # Run safety prediction
-        
-        # Capture and display the safety report message
-        selected_data <- paste("Safety Report:", result$message)
-      }
-    }
-    
-    return(selected_data)
-  })
-  
-  
-  
   
   # Render the creek data (Flow Volume, Stage) based on checkbox input
   output$creekData <- renderText({
@@ -325,15 +275,52 @@ server <- function(input, output, session) {
     return(selected_data)
   })
   
- 
-
+  # Render the Local Recommendation when "Local Recommendation" is selected and the Go button is clicked
+  output$localRecommendation <- renderText({
+    # Only render local recommendation if "Local Recommendation" is selected and "Go" button is clicked
+    selected_data <- ""
+    
+    if ("Local Recommendation" %in% input$recommendation_type) {
+      local_rec <- local_recommendation_reactive()
+      selected_data <- paste("Local Recommendation: ", local_rec)
+    }
+    
+    return(selected_data)
+  })
+  
+  #run safety report
+  output$safetyReport <- renderText({
+    selected_data <- ""
+    
+    if ("Safety Report" %in% input$recommendation_type) {
+      
+      # Use hardcoded values from the hydrologic_data data frame
+      flow_volume <- hydrologic_data$flow_volume
+      stage <- hydrologic_data$stage
+      
+      # Ensure flow and stage are numeric, and check if they are NA or 0
+      if (is.na(flow_volume) || is.na(stage) || flow_volume == 0 || stage == 0) {
+        selected_data <- "There is not enough data to run our safety model."
+      } else {
+        velocity_input <- flow_volume / stage  # Compute velocity
+        result <- predict_safety(velocity_input)  # Run safety prediction
+        
+        # Capture and display the safety report message
+        selected_data <- paste("Safety Report:", result$message)
+      }
+    }
+    
+    return(selected_data)
+  })
+  
+  
   # Initially render the map in the "Swim Report" tab
   output$map_output <- renderLeaflet({
     req(creek_data)  
     
     # Create a custom icon using the image from the www folder
     custom_icon <- makeIcon(
-      iconUrl = "Drop.png",  # Specify the image file in the www folder
+      iconUrl = "Icon.png",  # Specify the image file in the www folder
       iconWidth = 32,        # Adjust the size of the icon (width)
       iconHeight = 32,       # Adjust the size of the icon (height)
       iconAnchorX = 16,      # Anchor point for the icon (horizontal)
@@ -356,53 +343,6 @@ server <- function(input, output, session) {
         lat2 = max(creek_data$lat)
       )
   })
-  
-  
-  # Reactive expression to get the selected creek's latitude and longitude
-  selected_creek_coordinates <- reactive({
-    selected_creek <- input$creek
-    # Filter creek_data to get the latitude and longitude for the selected creek
-    creek_coords <- creek_data[creek_data$common_name == selected_creek, c("lat", "long", "common_name")]
-    return(creek_coords)
-  })
-  
-  # Reactive expression to update the map when "Go" button is pressed
-  map_update <- eventReactive(input$goButton, {
-    creek_coords <- selected_creek_coordinates()
-    
-    # Create a custom icon using the image from the www folder
-    custom_icon <- makeIcon(
-      iconUrl = "Drop.png",  # Specify the image file in the www folder
-      iconWidth = 32,        
-      iconHeight = 32,       
-      iconAnchorX = 16,      
-      iconAnchorY = 32,      
-      popupAnchorX = 0,      
-      popupAnchorY = -32     
-    )
-    
-    leaflet(data = creek_coords) %>%
-      addTiles() %>%
-      addMarkers(
-        lng = creek_coords$long, lat = creek_coords$lat, 
-        label = creek_coords$common_name,  # Use the correct label
-        icon = custom_icon                 # Use the custom icon for the marker
-      ) %>%
-      fitBounds(
-        lng1 = creek_coords$long, 
-        lat1 = creek_coords$lat,
-        lng2 = creek_coords$long, 
-        lat2 = creek_coords$lat
-      )
-  })
-  
-  # Replace the map when the Go button is pressed
-  observeEvent(input$goButton, {
-    output$map_output <- renderLeaflet({
-      map_update()  # Update the map with the selected creek's coordinates
-    })
-  })
-  
   
   
   
