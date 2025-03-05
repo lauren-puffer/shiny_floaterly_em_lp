@@ -135,7 +135,7 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      tags$img(src = "Logo.png", height = "250px"),
+      tags$img(src = "Logo.png", height = "250px", style = "width: 100%; object-fit: contain;"),
       tags$h2("Tell us about your float!", 
               style = "font-size: 36px; font-weight: bold; font-family: 'Fredoka One', sans-serif")
   ,
@@ -157,8 +157,8 @@ ui <- fluidPage(
       ), 
       tags$div(
         style = "display: flex; justify-content: space-evenly; align-items: center; width: 100%;",
-        actionButton("goButton", label = tags$img(src = "Get_Floatin.png", height = "100px")),
-        actionButton("help_btn", label = tags$img(src = "Help.png", height = "100px"))
+        actionButton("goButton", label = tags$img(src = "Get_Floatin.png", height = "150px")),
+        actionButton("help_btn", label = tags$img(src = "Help.png", height = "150px"))
       )
     ),
     
