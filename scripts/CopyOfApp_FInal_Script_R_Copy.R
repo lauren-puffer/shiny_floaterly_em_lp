@@ -358,51 +358,51 @@ server <- function(input, output, session) {
   })
   
   
-  # Reactive expression to get the selected creek's latitude and longitude
-  selected_creek_coordinates <- reactive({
-    selected_creek <- input$creek
-    # Filter creek_data to get the latitude and longitude for the selected creek
-    creek_coords <- creek_data[creek_data$common_name == selected_creek, c("lat", "long", "common_name")]
-    return(creek_coords)
-  })
+ # Reactive expression to get the selected creek's latitude and longitude
+selected_creek_coordinates <- reactive({
+  selected_creek <- input$creek
+  # Filter creek_data to get the latitude and longitude for the selected creek
+  creek_coords <- creek_data[creek_data$common_name == selected_creek, c("lat", "long", "common_name")]
+  return(creek_coords)
+})
+
+# Reactive expression to update the map when "Go" button is pressed
+map_update <- eventReactive(input$goButton, {
+  creek_coords <- selected_creek_coordinates()
   
-  # Reactive expression to update the map when "Go" button is pressed
-  map_update <- eventReactive(input$goButton, {
-    creek_coords <- selected_creek_coordinates()
-    
-    # Create a custom icon using the image from the www folder
-    custom_icon <- makeIcon(
-      iconUrl = "Drop.png",  # Specify the image file in the www folder
-      iconWidth = 32,        
-      iconHeight = 32,       
-      iconAnchorX = 16,      
-      iconAnchorY = 32,      
-      popupAnchorX = 0,      
-      popupAnchorY = -32     
+  # Create a custom icon using the image from the www folder
+  custom_icon <- makeIcon(
+    iconUrl = "Icon.png",  # Specify the image file in the www folder
+    iconWidth = 32,        
+    iconHeight = 32,       
+    iconAnchorX = 16,      
+    iconAnchorY = 32,      
+    popupAnchorX = 0,      
+    popupAnchorY = -32     
+  )
+  
+  leaflet(data = creek_coords) %>%
+    addTiles() %>%
+    addMarkers(
+      lng = creek_coords$long, lat = creek_coords$lat, 
+      label = creek_coords$common_name,  # Use the correct label
+      icon = custom_icon                 # Use the custom icon for the marker
+    ) %>%
+    fitBounds(
+      lng1 = creek_coords$long, 
+      lat1 = creek_coords$lat,
+      lng2 = creek_coords$long, 
+      lat2 = creek_coords$lat
     )
-    
-    leaflet(data = creek_coords) %>%
-      addTiles() %>%
-      addMarkers(
-        lng = creek_coords$long, lat = creek_coords$lat, 
-        label = creek_coords$common_name,  # Use the correct label
-        icon = custom_icon                 # Use the custom icon for the marker
-      ) %>%
-      fitBounds(
-        lng1 = creek_coords$long, 
-        lat1 = creek_coords$lat,
-        lng2 = creek_coords$long, 
-        lat2 = creek_coords$lat
-      )
+})
+
+# Replace the map when the Go button is pressed
+observeEvent(input$goButton, {
+  output$map_output <- renderLeaflet({
+    map_update()  # Update the map with the selected creek's coordinates
   })
-  
-  # Replace the map when the Go button is pressed
-  observeEvent(input$goButton, {
-    output$map_output <- renderLeaflet({
-      map_update()  # Update the map with the selected creek's coordinates
-    })
-  })
-  
+})
+ 
   
   
   
