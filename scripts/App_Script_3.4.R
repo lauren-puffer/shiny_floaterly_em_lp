@@ -28,11 +28,12 @@ creek_data <- read.csv(here("data", "Floaterly Creek ID Spreadsheet - Sheet1.csv
 creek_data <- creek_data %>%
   mutate(creek_node = str_remove(creek_node, "https://rain.cosbpw.net/site/\\?site_id="))
 
+
 # Function to scrape data based on creek node
 scrape_creek_data <- function(creek_node) {
   # Construct the URL to scrape using the creek_node
-  url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node)
-  
+url <- paste0("https://rain.cosbpw.net/site/?side_id", creek_node) 
+   
   # Read the HTML content of the page
   webpage <- read_html(url)
   
