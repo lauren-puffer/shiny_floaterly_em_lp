@@ -16,7 +16,7 @@ library(janitor)
 library(shinythemes)
 
 
-my_theme <- bs_theme(version = 4, bootswatch = "cerulean")
+my_theme <- bs_theme(version = 4, bootswatch = "cerulean", font = "Fredoka One")  # You can change this to any font
 
 
 # Load creek data
@@ -28,9 +28,12 @@ creek_data <- read.csv(here("data", "Floaterly Creek ID Spreadsheet - Sheet1.csv
 creek_data <- creek_data %>%
   mutate(creek_node = str_remove(creek_node, "https://rain.cosbpw.net/site/\\?site_id="))
 
-# Function to scrape hydrologic data
+# Function to scrape data based on creek node
 scrape_creek_data <- function(creek_node) {
+  # Construct the URL to scrape using the creek_node
   url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node)
+  
+  # Read the HTML content of the page
   webpage <- read_html(url)
   
   # Scrape Flow Volume
@@ -41,7 +44,14 @@ scrape_creek_data <- function(creek_node) {
     unlist() %>%
     grep("Flow Volume", ., value = TRUE)
   
-  flow_volume <- ifelse(length(flow_volume_text) > 0, str_extract(flow_volume_text[1], "\\d+"), NA)
+  # Extract the number after "Flow Volume"
+  flow_volume <- NA
+  if (length(flow_volume_text) > 0) {
+    flow_volume <- webpage %>%
+      html_nodes("div.h3") %>%
+      html_text() %>%
+      .[1]  # Get the first occurrence after "Flow Volume"
+  }
   
   # Scrape Stage
   stage_text <- webpage %>%
@@ -51,21 +61,30 @@ scrape_creek_data <- function(creek_node) {
     unlist() %>%
     grep("Stage", ., value = TRUE)
   
-  stage <- ifelse(length(stage_text) > 0, str_extract(stage_text[1], "\\d+\\.\\d+"), NA)
+  # Extract the number after "Stage"
+  stage <- NA
+  if (length(stage_text) > 0) {
+    stage <- webpage %>%
+      html_nodes("div.h3") %>%
+      html_text() %>%
+      .[2]  # Get the second occurrence after "Flow Volume"
+  }
   
   
-  hydrologic_data <<- data.frame(
-    flow_volume = flow_volume,
-    stage = stage
-  )
+  # hydrologic_data <<- data.frame(
+  #   flow_volume = flow_volume,
+  #   stage = stage
+  # )
   
+  
+<<<<<<< HEAD:scripts/App_FInal_Script_R_Copy.R
   #Changed scraping data to permanent temp data to make it run
   # Return data
+=======
+>>>>>>> 4fc43b19321df90334a547e6f7cacd208e418ea7:scripts/App_Script_3.4.R
   return(list(
-  flow_volume = flow_volume,
-  stage = stage
-  
-  ))
+    flow_volume = flow_volume, 
+    stage = stage))
 }
 
 
@@ -101,26 +120,50 @@ predict_safety <- function(velocity_ft_s) {
 ui <- fluidPage(
   theme = my_theme,  
   
+  tags$head(
+    tags$style(HTML("
+      /* Hot Pink checkboxes */
+      .checkbox input[type='checkbox'] {
+        accent-color: #FF69B4;  /* Hot pink color */
+      }
+
+      /* Change the active tab background to Hot Pink and make the text black and bold */
+      .nav-tabs .nav-item .active a {
+        background-color: #FF69B4 !important;  /* Hot pink for active tab */
+        color: black !important;  /* Black text for active tab */
+        font-weight: bold !important;  /* Bold text for active tab */
+      }
+      
+    "))
+  ),
+  
+  
   sidebarLayout(
     sidebarPanel(
-      tags$img(src = "Logo.png", height = "250px"),
-      'Tell us about your float!',
+      tags$img(src = "Logo.png", height = "250px", style = "width: 100%; object-fit: contain;"),
+      tags$h2("Tell us about your float!", 
+              style = "font-size: 36px; font-weight: bold; font-family: 'Fredoka One', sans-serif")
+  ,
+  
       
-      selectInput('creek', "Choose a body of water", choices = creek_data$common_name),
-      actionButton("goButton", label = tags$img(src = "Get_Floatin.png", height = "100px")),
-      
-      actionButton("help_btn", label = tags$img(src = "Help.png", height = "100px")),
+  selectInput('creek', label = tags$b("Choose a body of water"), choices = creek_data$common_name),
+
       
       checkboxGroupInput(
         inputId = 'hydrologic_data',
-        label = "What data would you like in your swim report",
+        label = tags$b("What data would you like in your swim report?"),
         choices = c('Weather', 'Water Conditions')
       ),
       
       checkboxGroupInput(
         inputId = 'recommendation_type',
-        label = "What type of recommendation would you like?",
+        label = tags$b("What type of recommendation would you like?"),
         choices = c('Safety Report', 'Local Recommendation')
+      ), 
+      tags$div(
+        style = "display: flex; justify-content: space-evenly; align-items: center; width: 100%;",
+        actionButton("goButton", label = tags$img(src = "Get_Floatin.png", height = "150px")),
+        actionButton("help_btn", label = tags$img(src = "Help.png", height = "150px"))
       )
     ),
     
@@ -128,7 +171,7 @@ ui <- fluidPage(
       tabsetPanel(
         id = "tabs",
         tabPanel("Swim Report", 
-                 leafletOutput("map_output"), 
+                 leafletOutput("map_output", height = "600px"), 
                  verbatimTextOutput("creekData"),
                  verbatimTextOutput("weatherData"),
                  verbatimTextOutput("localRecommendation"),
@@ -190,11 +233,11 @@ server <- function(input, output, session) {
     #Added temporary code for scraping so it runs on my computer
     
     # Return weather data
-   return(list(
-    weather_condition = weather_condition,
-   temperature = temperature,
-   humidity = humidity_percentage,
-  wind_speed = wind_speed))
+    return(list(
+      weather_condition = weather_condition,
+      temperature = temperature,
+      humidity = humidity_percentage,
+      wind_speed = wind_speed))
     
   }
   
@@ -220,25 +263,32 @@ server <- function(input, output, session) {
   })
   
   
+  # Trigger event when Go button is pressed
   go_trigger <- eventReactive(input$goButton, {
     input$recommendation_type  # Returns the selected recommendation type when button is clicked
   })
   
-  
-  
-  
-  
-  
-  
   # Reactive expression for Local Recommendation based on selected creek
   local_recommendation_reactive <- reactive({
-    selected_creek <- input$creek
-    
-    # Retrieve the corresponding local recommendation based on the selected creek
-    local_rec <- creek_data$local_rec[creek_data$common_name == selected_creek]
-    
+    req(input$creek)  # Ensure input is not NULL
+    local_rec <- creek_data$local_rec[creek_data$common_name == input$creek]
     return(local_rec)
   })
+  
+  # Render the Local Recommendation only when "Local Recommendation" is checked and the Go button is pressed
+  output$localRecommendation <- renderText({
+    req("Local Recommendation" %in% go_trigger())  # Ensures both the checkbox and button are used
+    
+    local_rec <- local_recommendation_reactive()
+    
+    # Ensure there is valid data before returning
+    if (!is.null(local_rec) && local_rec != "") {
+      return(paste("Local Recommendation:", local_rec))
+    } else {
+      return("")  # Empty output if no recommendation is found
+    }
+  })
+  
   
   # Render the creek data (Flow Volume, Stage) based on checkbox input
   output$creekData <- renderText({
@@ -263,61 +313,56 @@ server <- function(input, output, session) {
       weather_data <- weather_data_reactive()
       
       selected_data <- paste(selected_data,
-                             "Weather Condition: ", weather_data$weather_condition, "\n",
+                             "Forecast: ", weather_data$weather_condition, "\n",
                              "Temperature: ", weather_data$temperature, "\n",
                              "Humidity: ", weather_data$humidity, "\n",
-                             "Wind Speed: ", weather_data$wind_speed, "\n")
+                             "Wind Speed and Direction: ", weather_data$wind_speed, "\n")
     }
     
     return(selected_data)
   })
   
-  # Render the Local Recommendation when "Local Recommendation" is selected and the Go button is clicked
-  output$localRecommendation <- renderText({
-    # Only render local recommendation if "Local Recommendation" is selected and "Go" button is clicked
-    selected_data <- ""
-    
-    if ("Local Recommendation" %in% input$recommendation_type) {
-      local_rec <- local_recommendation_reactive()
-      selected_data <- paste("Local Recommendation: ", local_rec)
-    }
-    
-    return(selected_data)
+  
+  # Trigger event when Go button is pressed
+  go_trigger <- eventReactive(input$goButton, {
+    input$recommendation_type  # Returns the selected recommendation type when button is clicked
   })
   
-#run safety report
+  # Render the Safety Report only when "Safety Report" is checked and the Go button is pressed
   output$safetyReport <- renderText({
-    selected_data <- ""
+    req("Safety Report" %in% go_trigger())  # Ensure both the checkbox and button are used
     
-    if ("Safety Report" %in% input$recommendation_type) {
-      
-      # Use hardcoded values from the hydrologic_data data frame
-      flow_volume <- hydrologic_data$flow_volume
-      stage <- hydrologic_data$stage
-      
-      # Ensure flow and stage are numeric, and check if they are NA or 0
-      if (is.na(flow_volume) || is.na(stage) || flow_volume == 0 || stage == 0) {
-        selected_data <- "There is not enough data to run our safety model."
-      } else {
-        velocity_input <- flow_volume / stage  # Compute velocity
-        result <- predict_safety(velocity_input)  # Run safety prediction
-        
-        # Capture and display the safety report message
-        selected_data <- paste("Safety Report:", result$message)
-      }
+    hydrologic_data <- creek_data_reactive()  # Get the latest hydrologic data
+    
+    # Ensure hydrologic_data is available
+    req(hydrologic_data)
+    
+    # Extract necessary values
+    flow_volume <- hydrologic_data$flow_volume
+    stage <- hydrologic_data$stage
+    
+    # Ensure flow and stage are valid numeric values
+    if (is.na(flow_volume) || is.na(stage) || flow_volume == 0 || stage == 0) {
+      return("There is not enough data to run our safety model.")
     }
     
-    return(selected_data)
+    # Compute velocity and predict safety
+    velocity_input <- flow_volume / stage  
+    result <- predict_safety(velocity_input)  
+    
+    # Return the safety report message
+    return(paste("Safety Report:", result$message))
   })
+  
 
-
-  # Initially render the map in the "Swim Report" tab
+  
+  # Render the map with all the data initially
   output$map_output <- renderLeaflet({
-    req(creek_data)  
+    req(creek_data)  # Ensure creek_data is available
     
     # Create a custom icon using the image from the www folder
     custom_icon <- makeIcon(
-      iconUrl = "Icon.png",  # Specify the image file in the www folder
+      iconUrl = "Drop2.png",  # Specify the image file in the www folder
       iconWidth = 32,        # Adjust the size of the icon (width)
       iconHeight = 32,       # Adjust the size of the icon (height)
       iconAnchorX = 16,      # Anchor point for the icon (horizontal)
@@ -326,6 +371,7 @@ server <- function(input, output, session) {
       popupAnchorY = -32     # Adjust the popup position (vertical)
     )
     
+    # Create the leaflet map with all the data
     leaflet(data = creek_data) %>%
       addTiles() %>%
       addMarkers(
@@ -340,6 +386,35 @@ server <- function(input, output, session) {
         lat2 = max(creek_data$lat)
       )
   })
+  
+
+  
+  # Reactive expression for the filtered creek data based on user selection
+  filtered_creek_data <- reactive({
+    req(input$goButton)  # Ensure this runs when the 'Go' button is pressed
+    
+    # Filter the data based on the selected creek
+    creek_data %>% filter(common_name == input$creek)
+  })
+  
+  
+  # Render the map with only the selected creek when the 'Go' button is pressed
+  observeEvent(input$goButton, {
+    # Ensure filtered creek data is available
+
+    req(filtered_creek_data())
+    
+    # Get the filtered creek data
+    creek_data_filtered <- filtered_creek_data()
+    
+  leafletProxy("map_output", session) %>%
+    removeMarker(input$creek) #remove all the events tbat are no
+  })
+  
+  
+  
+  
+  
   
   
   
@@ -364,21 +439,21 @@ server <- function(input, output, session) {
       
       # Weather Data Section
       tags$div(
-        tags$h3("Weather Data"),
+        tags$b("Weather Data"),
         p("By selecting the weather option, your report will include temperature, wind speed, humidity, and a forecast for the day. 
          This data is sourced from the National Weather Service web page for Santa Barbara Municipal Airport.")
       ),
       
       # Hydrologic Data Section
       tags$div(
-        tags$h3("Hydrologic Data"),
+        tags$b("Hydrologic Data"),
         p("The stage and flow data represent the height of the water and the amount of water running through the stream. 
          This data is collected from the County of Santa Barbara data server.")
       ),
       
       # Safety Report Section
       tags$div(
-        tags$h3("Safety Report"),
+        tags$b("Safety Report"),
         p("The safety report is generated using a logistic regression model that characterizes the velocity of the stream 
          using flow and stage data scraped from the County of Santa Barbara data server."),
         p("Velocity is calculated assuming a square channel. The logistic regression model used was trained on USGS data for Mission Creek in Santa Barbara 
@@ -391,7 +466,7 @@ server <- function(input, output, session) {
       
       # Local Recommendation Section
       tags$div(
-        tags$h3("Local Recommendation"),
+        tags$b("Local Recommendation"),
         p("The local recommendation is based on knowledge of popular swimming locations and the health and safety of the rivers. 
          This provides insights into which spots are safest for swimming based on current conditions.")
       ),
@@ -399,29 +474,33 @@ server <- function(input, output, session) {
       # Step 3
       tags$div(
         tags$h3("Step 3: Generate Your Swim Report"),
-        p("Click 'Get Floatin'' to generate your personalized swim report.")
+        p("Click the 'Get Floatin'' button to generate your personalized swim report.")
       ),
       
       # Citation Section
       tags$div(
         tags$h3("Data Sources & Citations"),
-        p("National Oceanic and Atmospheric Administration, N. (2025, March 2). National Weather Service. https://forecast.weather.gov/MapClick.php?lat=34.4262&lon=-119.8415 "),
-        p("County of Santa Barbara. (n.d.). Home. County of Santa Barbara: Real Time Rainfall, River-Stream, and Reservoir Data. https://rain.cosbpw.net/ "),
-        p("USGS. (n.d.). Mission C NR mission st nr santa barbara ca. USGS-Water Data for the Nation. https://waterdata.usgs.gov/monitoring-location/11119750/#dataTypeId=continuous-00065-0&period=P7D&showMedian=false "),
-        p("Texas Parks and Wildlife. (n.d.). River safety. Texas Parks and Wildlife. https://tpwd.texas.gov/landwater/water/habitats/rivers/safety.phtml "),
-        p("Additional Sources: 
-          https://en.wikipedia.org/wiki/Santa_Maria_River_(California), 
-https://en.wikipedia.org/wiki/Sisquoc_River, 
-https://en.wikipedia.org/wiki/Santa_Ynez_River, 
-https://en.wikipedia.org/wiki/Santa_Ynez_River, 
-https://en.wikipedia.org/wiki/Santa_Ynez_River, 
-https://en.wikipedia.org/wiki/Santa_Ynez_River, 
-https://en.wikipedia.org/wiki/Carpinteria_Creek, 
-https://sbparksandrec.santabarbaraca.gov/creeks/mission-creek, 
-https://en.wikipedia.org/wiki/Sisquoc_River, 
-https://en.wikipedia.org/wiki/Cuyama_River, 
-")
+        p("National Oceanic and Atmospheric Administration, N. (2025, March 2). National Weather Service. 
+     ", tags$a(href = "https://forecast.weather.gov/MapClick.php?lat=34.4262&lon=-119.8415", "Link")),
+        p("County of Santa Barbara. (n.d.). Home. County of Santa Barbara: Real Time Rainfall, River-Stream, and Reservoir Data. 
+     ", tags$a(href = "https://rain.cosbpw.net/", "Link")),
+        p("USGS. (n.d.). Mission C NR mission st nr santa barbara ca. USGS-Water Data for the Nation. 
+     ", tags$a(href = "https://waterdata.usgs.gov/monitoring-location/11119750/#dataTypeId=continuous-00065-0&period=P7D&showMedian=false", "Link")),
+        p("Texas Parks and Wildlife. (n.d.). River safety. Texas Parks and Wildlife. 
+     ", tags$a(href = "https://tpwd.texas.gov/landwater/water/habitats/rivers/safety.phtml", "Link")),
+        p("Additional Sources:"),
+        p(tags$a(href = "https://en.wikipedia.org/wiki/Santa_Maria_River_(California)", "Santa Maria River (California)")),
+        p(tags$a(href = "https://en.wikipedia.org/wiki/Sisquoc_River", "Sisquoc River")),
+        p(tags$a(href = "https://en.wikipedia.org/wiki/Santa_Ynez_River", "Santa Ynez River")),
+        p(tags$a(href = "https://en.wikipedia.org/wiki/Santa_Ynez_River", "Santa Ynez River")),
+        p(tags$a(href = "https://en.wikipedia.org/wiki/Santa_Ynez_River", "Santa Ynez River")),
+        p(tags$a(href = "https://en.wikipedia.org/wiki/Santa_Ynez_River", "Santa Ynez River")),
+        p(tags$a(href = "https://en.wikipedia.org/wiki/Carpinteria_Creek", "Carpinteria Creek")),
+        p(tags$a(href = "https://sbparksandrec.santabarbaraca.gov/creeks/mission-creek", "Mission Creek")),
+        p(tags$a(href = "https://en.wikipedia.org/wiki/Sisquoc_River", "Sisquoc River")),
+        p(tags$a(href = "https://en.wikipedia.org/wiki/Cuyama_River", "Cuyama River"))
       )
+      
     )
   })
   
