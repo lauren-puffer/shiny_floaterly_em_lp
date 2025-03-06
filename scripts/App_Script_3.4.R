@@ -349,15 +349,15 @@ server <- function(input, output, session) {
     return(paste("Safety Report:", result$message))
   })
   
+
   
-  
-  # Initially render the map in the "Swim Report" tab
+  # Render the map with all the data initially
   output$map_output <- renderLeaflet({
-    req(creek_data)  
+    req(creek_data)  # Ensure creek_data is available
     
     # Create a custom icon using the image from the www folder
     custom_icon <- makeIcon(
-      iconUrl = "Drop.png",  # Specify the image file in the www folder
+      iconUrl = "Drop2.png",  # Specify the image file in the www folder
       iconWidth = 32,        # Adjust the size of the icon (width)
       iconHeight = 32,       # Adjust the size of the icon (height)
       iconAnchorX = 16,      # Anchor point for the icon (horizontal)
@@ -366,6 +366,7 @@ server <- function(input, output, session) {
       popupAnchorY = -32     # Adjust the popup position (vertical)
     )
     
+    # Create the leaflet map with all the data
     leaflet(data = creek_data) %>%
       addTiles() %>%
       addMarkers(
@@ -380,6 +381,35 @@ server <- function(input, output, session) {
         lat2 = max(creek_data$lat)
       )
   })
+  
+
+  
+  # Reactive expression for the filtered creek data based on user selection
+  filtered_creek_data <- reactive({
+    req(input$goButton)  # Ensure this runs when the 'Go' button is pressed
+    
+    # Filter the data based on the selected creek
+    creek_data %>% filter(common_name == input$creek)
+  })
+  
+  
+  # Render the map with only the selected creek when the 'Go' button is pressed
+  observeEvent(input$goButton, {
+    # Ensure filtered creek data is available
+
+    req(filtered_creek_data())
+    
+    # Get the filtered creek data
+    creek_data_filtered <- filtered_creek_data()
+    
+  leafletProxy("map_output", session) %>%
+    removeMarker(input$creek) #remove all the events tbat are no
+  })
+  
+  
+  
+  
+  
   
   
   
