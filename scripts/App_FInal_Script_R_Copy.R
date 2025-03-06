@@ -59,7 +59,7 @@ scrape_creek_data <- function(creek_node) {
     stage = stage
   )
   
-  #Changed scraping data to permanenet temp data to make it run
+  #Changed scraping data to permanent temp data to make it run
   # Return data
   return(list(
   flow_volume = flow_volume,
