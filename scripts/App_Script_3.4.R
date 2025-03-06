@@ -78,7 +78,6 @@ url <- paste0("https://rain.cosbpw.net/site/?side_id", creek_node)
   
 }
 
-hydrologic_data <- scrape_creek_data()
 
 
 #hydrologic_data <<- data.frame(
