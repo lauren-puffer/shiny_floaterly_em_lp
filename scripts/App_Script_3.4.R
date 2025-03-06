@@ -70,22 +70,22 @@ scrape_creek_data <- function(creek_node) {
       .[2]  # Get the second occurrence after "Flow Volume"
   }
   
-  
-  # hydrologic_data <<- data.frame(
-  #   flow_volume = flow_volume,
-  #   stage = stage
-  # )
-  
-  
-<<<<<<< HEAD:scripts/App_FInal_Script_R_Copy.R
-  #Changed scraping data to permanent temp data to make it run
-  # Return data
-=======
->>>>>>> 4fc43b19321df90334a547e6f7cacd208e418ea7:scripts/App_Script_3.4.R
+  # return values
   return(list(
     flow_volume = flow_volume, 
     stage = stage))
+  
+
 }
+
+#hydrologic_data <<- data.frame(
+#flow_volume = flow_volume,
+#stage = stage
+#<<<<<<< HEAD:scripts/App_FInal_Script_R_Copy.R
+#Changed scraping data to permanent temp data to make it run
+# Return data
+#=======
+#>>>>>>> 4fc43b19321df90334a547e6f7cacd208e418ea7:scripts/App_Script_3.4.R
 
 
 #Logistic regression model function. Logistic regression made in seperate script
@@ -110,7 +110,9 @@ predict_safety <- function(velocity_ft_s) {
   }
   
   # Return the prediction and message
-  return(list(prediction = prediction, message = message, probability = prob))
+  return(list(prediction = prediction, message = message))
+  
+  #, probability = prob
 }
 
 
@@ -228,8 +230,6 @@ server <- function(input, output, session) {
     
     
     
-    
-    
     #Added temporary code for scraping so it runs on my computer
     
     # Return weather data
@@ -331,6 +331,8 @@ server <- function(input, output, session) {
   # Render the Safety Report only when "Safety Report" is checked and the Go button is pressed
   output$safetyReport <- renderText({
     req("Safety Report" %in% go_trigger())  # Ensure both the checkbox and button are used
+    
+    
     
     hydrologic_data <- creek_data_reactive()  # Get the latest hydrologic data
     
@@ -550,7 +552,6 @@ server <- function(input, output, session) {
 
 # Run the app
 shinyApp(ui = ui, server = server)
-
 
 
 
