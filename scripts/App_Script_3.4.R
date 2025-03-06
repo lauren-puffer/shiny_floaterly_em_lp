@@ -76,8 +76,10 @@ url <- paste0("https://rain.cosbpw.net/site/?side_id", creek_node)
     flow_volume = flow_volume, 
     stage = stage))
   
-
 }
+
+hydrologic_data <- scrape_creek_data()
+
 
 #hydrologic_data <<- data.frame(
 #flow_volume = flow_volume,
@@ -342,7 +344,7 @@ server <- function(input, output, session) {
     
     # Extract necessary values
     flow_volume <- hydrologic_data$flow_volume
-    stage <- hydrologic_data$stage
+    stage <- hydrologic_data_data$stage
     
     # Ensure flow and stage are valid numeric values
     if (is.na(flow_volume) || is.na(stage) || flow_volume == 0 || stage == 0) {
