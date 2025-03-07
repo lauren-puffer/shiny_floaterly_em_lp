@@ -32,7 +32,7 @@ creek_data <- creek_data %>%
 # Function to scrape data based on creek node
 scrape_creek_data <- function(creek_node) {
   # Construct the URL to scrape using the creek_node
-url <- paste0("https://rain.cosbpw.net/site/?side_id", creek_node) 
+url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node) 
    
   # Read the HTML content of the page
   webpage <- read_html(url)
@@ -82,7 +82,7 @@ url <- paste0("https://rain.cosbpw.net/site/?side_id", creek_node)
 
 #hydrologic_data <<- data.frame(
 #flow_volume = flow_volume,
-#stage = stage
+#stage = stage)
 #<<<<<<< HEAD:scripts/App_FInal_Script_R_Copy.R
 #Changed scraping data to permanent temp data to make it run
 # Return data
@@ -91,10 +91,12 @@ url <- paste0("https://rain.cosbpw.net/site/?side_id", creek_node)
 
 
 #Logistic regression model function. Logistic regression made in seperate script
-predict_safety <- function(velocity_ft_s) {
+predict_safety <- function(flow_volume, stage) {
   # Model coefficients
   intercept <- -18.1
   velocity_coef <- 8.35
+  
+  velocity_ft_s <- flow_volume / stage  
   
   # Calculate the log-odds (linear predictor)
   log_odds <- intercept + velocity_coef * velocity_ft_s
@@ -343,7 +345,7 @@ server <- function(input, output, session) {
     
     # Extract necessary values
     flow_volume <- hydrologic_data$flow_volume
-    stage <- hydrologic_data_data$stage
+    stage <- hydrologic_data$stage
     
     # Ensure flow and stage are valid numeric values
     if (is.na(flow_volume) || is.na(stage) || flow_volume == 0 || stage == 0) {
@@ -351,8 +353,8 @@ server <- function(input, output, session) {
     }
     
     # Compute velocity and predict safety
-    velocity_input <- flow_volume / stage  
-    result <- predict_safety(velocity_input)  
+    #velocity_input <- flow_volume / stage  
+    result <- predict_safety(flow_volume, stage)  
     
     # Return the safety report message
     return(paste("Safety Report:", result$message))
