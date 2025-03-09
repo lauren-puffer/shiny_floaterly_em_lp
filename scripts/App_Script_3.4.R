@@ -28,11 +28,12 @@ creek_data <- read.csv(here("data", "Floaterly Creek ID Spreadsheet - Sheet1.csv
 creek_data <- creek_data %>%
   mutate(creek_node = str_remove(creek_node, "https://rain.cosbpw.net/site/\\?site_id="))
 
+
 # Function to scrape data based on creek node
 scrape_creek_data <- function(creek_node) {
   # Construct the URL to scrape using the creek_node
-  url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node)
-  
+url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node) 
+   
   # Read the HTML content of the page
   webpage <- read_html(url)
   
@@ -70,24 +71,32 @@ scrape_creek_data <- function(creek_node) {
       .[2]  # Get the second occurrence after "Flow Volume"
   }
   
-  
-  # hydrologic_data <<- data.frame(
-  #   flow_volume = flow_volume,
-  #   stage = stage
-  # )
-  
-  
+  # return values
   return(list(
     flow_volume = flow_volume, 
     stage = stage))
+  
 }
 
 
+
+#hydrologic_data <<- data.frame(
+#flow_volume = flow_volume,
+#stage = stage)
+#<<<<<<< HEAD:scripts/App_FInal_Script_R_Copy.R
+#Changed scraping data to permanent temp data to make it run
+# Return data
+#=======
+#>>>>>>> 4fc43b19321df90334a547e6f7cacd208e418ea7:scripts/App_Script_3.4.R
+
+
 #Logistic regression model function. Logistic regression made in seperate script
-predict_safety <- function(velocity_ft_s) {
+predict_safety <- function(flow_volume, stage) {
   # Model coefficients
   intercept <- -18.1
   velocity_coef <- 8.35
+  
+  velocity_ft_s <- flow_volume / stage  
   
   # Calculate the log-odds (linear predictor)
   log_odds <- intercept + velocity_coef * velocity_ft_s
@@ -105,7 +114,9 @@ predict_safety <- function(velocity_ft_s) {
   }
   
   # Return the prediction and message
-  return(list(prediction = prediction, message = message, probability = prob))
+  return(list(prediction = prediction, message = message))
+  
+  #, probability = prob
 }
 
 
@@ -223,8 +234,6 @@ server <- function(input, output, session) {
     
     
     
-    
-    
     #Added temporary code for scraping so it runs on my computer
     
     # Return weather data
@@ -327,6 +336,8 @@ server <- function(input, output, session) {
   output$safetyReport <- renderText({
     req("Safety Report" %in% go_trigger())  # Ensure both the checkbox and button are used
     
+    
+    
     hydrologic_data <- creek_data_reactive()  # Get the latest hydrologic data
     
     # Ensure hydrologic_data is available
@@ -342,8 +353,8 @@ server <- function(input, output, session) {
     }
     
     # Compute velocity and predict safety
-    velocity_input <- flow_volume / stage  
-    result <- predict_safety(velocity_input)  
+    #velocity_input <- flow_volume / stage  
+    result <- predict_safety(flow_volume, stage)  
     
     # Return the safety report message
     return(paste("Safety Report:", result$message))
@@ -553,7 +564,6 @@ server <- function(input, output, session) {
 
 # Run the app
 shinyApp(ui = ui, server = server)
-
 
 
 
