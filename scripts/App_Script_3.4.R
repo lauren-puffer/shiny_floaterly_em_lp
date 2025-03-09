@@ -178,10 +178,10 @@ ui <- fluidPage(
         id = "tabs",
         tabPanel("Swim Report", 
                  leafletOutput("map_output", height = "600px"), 
-                 verbatimTextOutput("creekData"),
-                 verbatimTextOutput("weatherData"),
-                 verbatimTextOutput("localRecommendation"),
-                 verbatimTextOutput("safetyReport")
+                 uiOutput("creekData"),
+                 uiOutput("weatherData"),
+                 uiOutput("localRecommendation"),
+                 uiOutput("safetyReport")
         ),  
         tabPanel("How To Use Floaterly", uiOutput("help_content")),  
         tabPanel("Gallery", uiOutput("gallery_content"))  
@@ -280,14 +280,16 @@ server <- function(input, output, session) {
   })
   
   # Render the Local Recommendation only when "Local Recommendation" is checked and the Go button is pressed
-  output$localRecommendation <- renderText({
+  output$localRecommendation <- renderUI({
     req("Local Recommendation" %in% go_trigger())  # Ensures both the checkbox and button are used
+    req(local_recommendation_reactive())  # Ensure data exists
     
     local_rec <- local_recommendation_reactive()
     
     # Ensure there is valid data before returning
     if (!is.null(local_rec) && local_rec != "") {
-      return(paste("Local Recommendation:", local_rec))
+      return(HTML(paste("<h3><b>Local Recommendation:</b></h3>", 
+                        local_rec)))
     } else {
       return("")  # Empty output if no recommendation is found
     }
@@ -295,34 +297,37 @@ server <- function(input, output, session) {
   
   
   # Render the creek data (Flow Volume, Stage) based on checkbox input
-  output$creekData <- renderText({
+  output$creekData <- renderUI({
     creek_data <- creek_data_reactive()
     selected_data <- ""
     
     if ("Water Conditions" %in% input$hydrologic_data) {
-      selected_data <- paste(selected_data,
-                             "Flow Volume: ", creek_data$flow_volume, "\n",
-                             "Stage: ", creek_data$stage, "\n")
+      selected_data <- HTML(paste(
+        "<h3><b>Water Conditions</b></h3>",  # Smaller title for Water Conditions
+        "<b>Flow:</b> ", creek_data$flow_volume, "<br>",  # Bold Flow and Stage
+        "<b>Stage:</b> ", creek_data$stage, "<br>"  # Bold Flow and Stage
+      ))
     }
     
     return(selected_data)
   })
   
   # Render the weather data (Weather Condition, Temperature, etc.) based on checkbox input
-  output$weatherData <- renderText({
+  output$weatherData <- renderUI({
     selected_data <- ""
     
     # Only render weather data if "Weather" is selected in the checkbox
     if ("Weather" %in% input$hydrologic_data) {
       weather_data <- weather_data_reactive()
       
-      selected_data <- paste(selected_data,
-                             "Forecast: ", weather_data$weather_condition, "\n",
-                             "Temperature: ", weather_data$temperature, "\n",
-                             "Humidity: ", weather_data$humidity, "\n",
-                             "Wind Speed and Direction: ", weather_data$wind_speed, "\n")
+      selected_data <- HTML(paste(
+        "<h3><b>Weather Report:</b></h3>", 
+        "<b>Forecast:</b> ", weather_data$weather_condition, "<br>",
+        "<b>Temperature:</b> ", weather_data$temperature, "°C<br>",
+        "<b>Humidity:</b> ", weather_data$humidity, "%<br>",
+        "<b>Wind Speed and Direction:</b> ", weather_data$wind_speed, " ", weather_data$wind_direction, "<br>"
+      ))
     }
-    
     return(selected_data)
   })
   
@@ -333,9 +338,8 @@ server <- function(input, output, session) {
   })
   
   # Render the Safety Report only when "Safety Report" is checked and the Go button is pressed
-  output$safetyReport <- renderText({
+  output$safetyReport <- renderUI({
     req("Safety Report" %in% go_trigger())  # Ensure both the checkbox and button are used
-    
     
     
     hydrologic_data <- creek_data_reactive()  # Get the latest hydrologic data
@@ -349,7 +353,7 @@ server <- function(input, output, session) {
     
     # Ensure flow and stage are valid numeric values
     if (is.na(flow_volume) || is.na(stage) || flow_volume == 0 || stage == 0) {
-      return("There is not enough data to run our safety model.")
+      return("Safety Report", "Either flow or water height is 0 indicating that the stream is safe to swim in!")
     }
     
     # Compute velocity and predict safety
@@ -357,7 +361,9 @@ server <- function(input, output, session) {
     result <- predict_safety(flow_volume, stage)  
     
     # Return the safety report message
-    return(paste("Safety Report:", result$message))
+    return(HTML(paste("<h3><b>Safety Report:</b></h3>", result$message ,  "<br>",  # Adds a line break
+                      "<p>To learn more about the logistic regression model used to evaluate safety, see the How To Use Floaterly tab"  # The additional message with line break
+    )))
   })
   
 
@@ -368,7 +374,7 @@ server <- function(input, output, session) {
     
     # Create a custom icon using the image from the www folder
     custom_icon <- makeIcon(
-      iconUrl = "Drop2.png",  # Specify the image file in the www folder
+      iconUrl = "Drop.png",  # Specify the image file in the www folder
       iconWidth = 32,        # Adjust the size of the icon (width)
       iconHeight = 32,       # Adjust the size of the icon (height)
       iconAnchorX = 16,      # Anchor point for the icon (horizontal)
@@ -413,6 +419,17 @@ server <- function(input, output, session) {
     # Get the filtered creek data
     creek_data_filtered <- filtered_creek_data()
     
+    # Define a new custom icon for use in leafletProxy
+    custom_icon <- makeIcon(
+      iconUrl = "Drop.png",  # Use the new icon specifically for the proxy update
+      iconWidth = 32,
+      iconHeight = 32,
+      iconAnchorX = 16,
+      iconAnchorY = 32,
+      popupAnchorX = 0,
+      popupAnchorY = -32
+    )
+    
     # Use leafletProxy to update the existing map
     leafletProxy("map_output", session) %>%
       clearMarkers() %>%  # Remove existing markers
@@ -420,14 +437,8 @@ server <- function(input, output, session) {
         data = creek_data_filtered,
         lng = ~long, lat = ~lat, 
         label = ~common_name,  # Display name on hover
-        icon = custom_icon     # Use the custom icon for markers
-      ) %>%
-      fitBounds(
-        lng1 = min(creek_data_filtered$long), 
-        lat1 = min(creek_data_filtered$lat),
-        lng2 = max(creek_data_filtered$long),
-        lat2 = max(creek_data_filtered$lat)
-      )
+        icon= custom_icon# Use the custom icon for markers
+      ) 
   })
 
   
@@ -436,6 +447,8 @@ server <- function(input, output, session) {
   output$help_content <- renderUI({
     tagList(
       h2("Floaterly Quick Tutorial"),  # Larger title
+      p("The purpouse of this app is to provide realtime recommendations regarding swimming safety and water conditions 
+        for local streams in Santa Barbara County"),
       p("Follow the steps below to get the most out of your Floaterly experience:"),
       
       # Step 1
@@ -448,7 +461,7 @@ server <- function(input, output, session) {
       # Step 2
       tags$div(
         tags$h3("Step 2: Customize Your Swim Report"),
-        p("Use the checkboxes to select what kind of data you want included in your swim report.")
+        p("Use the checkboxes to select what kind of data or recommendations you want included in your swim report.")
       ),
       
       # Weather Data Section
@@ -470,11 +483,11 @@ server <- function(input, output, session) {
         tags$b("Safety Report"),
         p("The safety report is generated using a logistic regression model that characterizes the velocity of the stream 
          using flow and stage data scraped from the County of Santa Barbara data server."),
-        p("Velocity is calculated assuming a square channel. The logistic regression model used was trained on USGS data for Mission Creek in Santa Barbara 
+        p("Velocity is calculated assuming a square channel. The logistic regression model used was trained on USGS data for Mission Creek in Santa Barbara
          from January 2024 to March 2024. This data range was selected for its large fluctuations in flow and stage."),
         p("Data was classified as safe or unsafe based on stage and velocity. All flows with a stage greater than 5 ft and more than 5.9 cfs were 
          considered unsafe. The stage limit was chosen based on an estimate of the average chest height of a person, and the velocity was selected 
-         based on the International Scale of River Difficulty for flat water. This assumes that Class C rivers (velocity more than 4 mph) are unsafe for swimming. 
+         based on the International Scale of River Difficulty for flat water (Texas Parks and Wildlife). This assumes that Class C rivers (velocity more than 4 mph) are unsafe for swimming. 
          This is a conservative estimate, reflected in the model.")
       ),
       
@@ -522,35 +535,39 @@ server <- function(input, output, session) {
   
   output$gallery_content <- renderUI({
     tagList(
-      h3("Get inspired by all of the beautiful rivers in Santa Barbara County"),
+      h3("Swimming Hole Hall of Fame"),
       
       # Image for Montecito Hot Springs
       div(
         tags$h4("Montecito Hot Springs"),
-        tags$img(src = "Montecito_hot_springs.jpg", height = "400px", width = "auto"),
+        tags$p("Montecito Hot Springs is a popular natural hot spring located in the Hills of Montecito. The hike to this location is 2.5 miles straight up into the hills. 
+               This hike provides great views of the back yards of various rich homeowners. This is a very popular swimming spot especially 
+               on the weekends. For the best experience go to the hot springs on a weekday morning!"),
+        tags$img(src = "Montecito_hot_springs.jpg", height = "600px", width = "auto"),
         p(a("Source", href = "https://www.findinghotsprings.com/mag/montecito-hot-springs", target = "_blank"))
       ),
       
-      # Image for Santa Ynez River
-      div(
-        tags$h4("Santa Ynez River"),
-        tags$img(src = "Santa_Ynez1.jpg", height = "400px", width = "auto"),
-        p(a("Source", href = "https://en.wikipedia.org/wiki/Santa_Ynez_River", target = "_blank"))
-      ),
       
-      # Image for Santa Maria River
+      # Image Red Rock
       div(
-        tags$h4("Santa Maria River"),
-        tags$img(src = "santamaria.jpg", height = "400px", width = "auto"),
-        p(a("Source", href = "https://creeklands.org/projects/santa-maria-river-healthy-watershed-initiative/", target = "_blank"))
+        tags$h4("Red Rock Swimming Hole"),
+        tags$p("The red rock trail is a 1 mile out and back trail that will take you to one of the most popular swimming spots for Santa Barbara locals.
+        There are many swimming holes along the trail but get here early to secure parking. There are toilets at the start of the hike. Make sure to bring plenty of water. 
+      "),
+        tags$img(src = "RedRock.jpg", height = "400px", width = "auto"),
+        p(a("Source", href = "https://www.fs.usda.gov/recarea/lpnf/recreation/recarea/?recid=11093&actid=50", target = "_blank"))
       ),
       
       # Image for Sisquoc River
       div(
         tags$h4("Sisquoc River"),
+        tags$p("The Sisquoc River is a beautiful pristine river that is perfect for dipping your toes during a hike in the Sierra Madre Mountains."
+      ),
         tags$img(src = "Sisqoc.jpg", height = "400px", width = "auto"),
         p(a("Source", href = "https://askirtinthedirt.com/archives/6731", target = "_blank"))
       )
+      
+      
     )
   })
   
