@@ -402,15 +402,23 @@ server <- function(input, output, session) {
     # Get the filtered creek data
     creek_data_filtered <- filtered_creek_data()
     
-  leafletProxy("map_output", session) %>%
-    removeMarker(input$creek) #remove all the events tbat are no
+    # Use leafletProxy to update the existing map
+    leafletProxy("map_output", session) %>%
+      clearMarkers() %>%  # Remove existing markers
+      addMarkers(
+        data = creek_data_filtered,
+        lng = ~long, lat = ~lat, 
+        label = ~common_name,  # Display name on hover
+        icon = custom_icon     # Use the custom icon for markers
+      ) %>%
+      fitBounds(
+        lng1 = min(creek_data_filtered$long), 
+        lat1 = min(creek_data_filtered$lat),
+        lng2 = max(creek_data_filtered$long),
+        lat2 = max(creek_data_filtered$lat)
+      )
   })
-  
-  
-  
-  
-  
-  
+
   
   
   # Render help content (always visible)
