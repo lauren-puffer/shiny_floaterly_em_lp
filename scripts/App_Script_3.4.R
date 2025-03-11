@@ -37,6 +37,7 @@ url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node)
   # Read the HTML content of the page
   webpage <- read_html(url)
   
+  
   # Scrape Flow Volume
   flow_volume_text <- webpage %>%
     html_nodes("body") %>%
@@ -70,8 +71,27 @@ url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node)
       html_text() %>%
       .[2]  # Get the second occurrence after "Flow Volume"
   }
+
+  flow_volume <- str_remove(flow_volume, " cfs")  # Remove 'cfs' from flow_volume
+  stage <- str_remove(stage, " ft")  # Remove 'ft' from stage
   
-  # return values
+  
+  flow_volume <- as.numeric(flow_volume)  # Convert flow_volume to numeric
+  stage <- as.numeric(stage)  # Convert stage to numeric
+  
+  
+  #create a dataframe with flow_volume and stage in global environment to use in other functions
+  hydro_data <<- data.frame(
+    flow_volume = flow_volume,
+    stage = stage)
+  
+  
+  
+  #return values
+  #return(data.frame(flow_volume = flow_volume, stage = stage))
+  
+  
+   #return values
   return(list(
     flow_volume = flow_volume, 
     stage = stage))
@@ -79,24 +99,24 @@ url <- paste0("https://rain.cosbpw.net/site/?site_id=", creek_node)
 }
 
 
-
-#hydrologic_data <<- data.frame(
-#flow_volume = flow_volume,
-#stage = stage)
-#<<<<<<< HEAD:scripts/App_FInal_Script_R_Copy.R
-#Changed scraping data to permanent temp data to make it run
-# Return data
-#=======
-#>>>>>>> 4fc43b19321df90334a547e6f7cacd208e418ea7:scripts/App_Script_3.4.R
-
-
 #Logistic regression model function. Logistic regression made in seperate script
 predict_safety <- function(flow_volume, stage) {
+  
+  # Check for NA or non-numeric values
+  if (is.na(flow_volume) | is.na(stage) | !is.numeric(flow_volume) | !is.numeric(stage)) {
+    return(list(
+      prediction = NA, 
+      message = "Invalid input: flow_volume or stage is missing or not numeric"
+    ))
+  }
+  
+  
   # Model coefficients
   intercept <- -18.1
   velocity_coef <- 8.35
+ 
   
-  velocity_ft_s <- flow_volume / stage  
+   velocity_ft_s <- flow_volume / stage  
   
   # Calculate the log-odds (linear predictor)
   log_odds <- intercept + velocity_coef * velocity_ft_s
@@ -304,8 +324,8 @@ server <- function(input, output, session) {
     if ("Water Conditions" %in% input$hydrologic_data) {
       selected_data <- HTML(paste(
         "<h3><b>Water Conditions</b></h3>",  # Smaller title for Water Conditions
-        "<b>Flow:</b> ", creek_data$flow_volume, "<br>",  # Bold Flow and Stage
-        "<b>Stage:</b> ", creek_data$stage, "<br>"  # Bold Flow and Stage
+        "<b>Flow (ft^3/s):</b> ", hydro_data$flow_volume, "<br>",  # Bold Flow and Stage
+        "<b>Stage (ft):</b> ", hydro_data$stage, "<br>"  # Bold Flow and Stage
       ))
     }
     
@@ -341,29 +361,22 @@ server <- function(input, output, session) {
   output$safetyReport <- renderUI({
     req("Safety Report" %in% go_trigger())  # Ensure both the checkbox and button are used
     
-    
-    hydrologic_data <- creek_data_reactive()  # Get the latest hydrologic data
-    
-    # Ensure hydrologic_data is available
-    req(hydrologic_data)
-    
     # Extract necessary values
-    flow_volume <- hydrologic_data$flow_volume
-    stage <- hydrologic_data$stage
+    flow_volume <- hydro_data$flow_volume
+    stage <- hydro_data$stage
     
-    # Ensure flow and stage are valid numeric values
+    
+    safetyReport <- predict_safety(flow_volume, stage)  # Get the latest hydrologic data
+    
+    # Ensure flow and stage are valid numeric values and not zero
     if (is.na(flow_volume) || is.na(stage) || flow_volume == 0 || stage == 0) {
-      return("Safety Report", "Either flow or water height is 0 indicating that the stream is safe to swim in!")
+      return(HTML("<h3><b>Safety Report:</b></h3><p>Either flow or water height is 0, indicating that the stream is safe to swim in!</p>"))
+    } else {
+      # If values are valid, return the safety report
+      return(HTML(paste("<h3><b>Safety Report:</b></h3>", safetyReport$message ,  "<br>",  # Adds a line break
+                        "<p>To learn more about the logistic regression model used to evaluate safety, see the How To Use Floaterly tab"  # The additional message with line break
+      )))
     }
-    
-    # Compute velocity and predict safety
-    #velocity_input <- flow_volume / stage  
-    result <- predict_safety(flow_volume, stage)  
-    
-    # Return the safety report message
-    return(HTML(paste("<h3><b>Safety Report:</b></h3>", result$message ,  "<br>",  # Adds a line break
-                      "<p>To learn more about the logistic regression model used to evaluate safety, see the How To Use Floaterly tab"  # The additional message with line break
-    )))
   })
   
 
