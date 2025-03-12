@@ -221,7 +221,7 @@ server <- function(input, output, session) {
   })
   
   # Static weather URL (you can modify this to be dynamic if needed)
-  weather_url <- "https://forecast.weather.gov/MapClick.php?lat=34.4262&lon=-119.8415"  # Example URL
+  weather_url <- "https://forecast.weather.gov/MapClick.php?lat=34.4262&lon=-119.8415" # Example URL
   
   # Function to scrape weather data
   scrape_weather_data <- function(weather_url) {
@@ -239,6 +239,7 @@ server <- function(input, output, session) {
       html_text() %>%
       .[1]  # Get the first occurrence for the temperature
     
+    
     # Scrape humidity
     weather_data <- weather_page %>%
       html_nodes("td") %>%
@@ -246,12 +247,15 @@ server <- function(input, output, session) {
     
     # Find the index of the first occurrence of "Humidity"
     humidity_index <- grep("Humidity", weather_data)
-    humidity_percentage <- gsub("[^0-9%]", "", weather_data[humidity_index + 1])
+    humidity_percentage <- gsub("[^0-9]", "", weather_data[humidity_index + 1])
     
     # Find the index of the first occurrence of "Wind Speed"
     wind_speed_index <- grep("Wind Speed", weather_data)
     wind_speed <- gsub("\\s+", " ", weather_data[wind_speed_index + 1])
     
+    # Find the index of the first occurrence of "Temperature"
+    #temperature_index <- grep("Temperature", weather_data)
+    #temperature <- gsub("[^0-9]", "", weather_data [temperature_index+1])    
     
     
     #Added temporary code for scraping so it runs on my computer
