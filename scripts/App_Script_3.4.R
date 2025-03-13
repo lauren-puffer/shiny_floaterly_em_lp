@@ -237,7 +237,7 @@ server <- function(input, output, session) {
     temperature <- weather_page %>%
       html_nodes(".myforecast-current-lrg") %>%
       html_text() %>%
-      .[1]  # Get the first occurrence for the temperature
+      .[1] # Get the first occurrence for the temperature
     
     
     # Scrape humidity
