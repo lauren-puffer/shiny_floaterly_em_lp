@@ -253,14 +253,10 @@ server <- function(input, output, session) {
     wind_speed_index <- grep("Wind Speed", weather_data)
     wind_speed <- gsub("\\s+", " ", weather_data[wind_speed_index + 1])
     
-    # Find the index of the first occurrence of "Temperature"
-    #temperature_index <- grep("Temperature", weather_data)
-    #temperature <- gsub("[^0-9]", "", weather_data [temperature_index+1])    
+    # remove °C from temperature
+    temperature <- gsub("°C", "", temperature)
     
-    
-    #Added temporary code for scraping so it runs on my computer
-    
-    # Return weather data
+  # Return weather data
     return(list(
       weather_condition = weather_condition,
       temperature = temperature,
@@ -347,7 +343,7 @@ server <- function(input, output, session) {
       selected_data <- HTML(paste(
         "<h3><b>Weather Report:</b></h3>", 
         "<b>Forecast:</b> ", weather_data$weather_condition, "<br>",
-        "<b>Temperature:</b> ", weather_data$temperature, "°C<br>",
+        "<b>Temperature (Fahrenheit):</b> ", weather_data$temperature, "°C<br>",
         "<b>Humidity:</b> ", weather_data$humidity, "%<br>",
         "<b>Wind Speed and Direction:</b> ", weather_data$wind_speed, " ", weather_data$wind_direction, "<br>"
       ))
